@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghost in the Index — Dork Trainer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root{
+    --bg: #05080a;
+    --panel: #0b1114;
+    --panel2: #0f171b;
+    --line: #1c2b30;
+    --phosphor: #4dff9f;
+    --phosphor-dim: #2c8f5c;
+    --amber: #ffb454;
+    --red: #ff6b6b;
+    --text: #cfe8dc;
+    --text-dim: #7a9a8c;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;}
+  ::selection{background:var(--phosphor);color:#03130a;}
+
+  .scanlines{
+    position:fixed; inset:0; pointer-events:none; z-index:50;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode:multiply; opacity:0.35;
+  }
+
+  .wrap{max-width:920px; margin:0 auto; padding:28px 20px 80px;}
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:22px;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-glyph{
+    width:30px; height:30px; border:1.5px solid var(--phosphor); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;
+    color:var(--phosphor); font-size:14px; box-shadow:0 0 12px rgba(77,255,159,0.35);
+  }
+  .brand-name{font-family:'JetBrains Mono',monospace; font-weight:800; letter-spacing:2px; font-size:15px;}
+  .brand-name span{color:var(--phosphor);}
+  .stage-tracker{display:flex; gap:6px;}
+  .dot{
+    width:26px; height:26px; border-radius:4px; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;
+    font-size:11px; color:var(--text-dim); background:var(--panel); cursor:pointer; transition:border-color 0.15s ease;
+  }
+  .dot:hover{border-color:var(--phosphor-dim); color:var(--text);}
+  .dot.done{border-color:var(--phosphor); color:var(--phosphor); box-shadow:0 0 8px rgba(77,255,159,0.3);}
+  .dot.active-nav{outline:1px solid var(--amber); outline-offset:2px;}
+
+  .intro{
+    background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px 22px; margin-bottom:22px;
+  }
+  .intro h1{font-family:'JetBrains Mono',monospace; font-size:1.15rem; margin:0 0 10px; letter-spacing:0.5px;}
+  .intro p{color:var(--text-dim); font-size:0.9rem; line-height:1.6; margin:0 0 8px;}
+  .intro .target{font-family:'JetBrains Mono',monospace; color:var(--amber); font-size:0.85rem;}
+  .toggle-help{
+    background:none; border:1px solid var(--line); color:var(--text-dim); font-family:'JetBrains Mono',monospace;
+    font-size:0.75rem; padding:6px 10px; border-radius:4px; cursor:pointer; margin-top:10px;
+  }
+  .toggle-help:hover{border-color:var(--phosphor-dim); color:var(--phosphor);}
+  .help-box{display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); font-size:0.82rem; color:var(--text-dim); line-height:1.7;}
+  .help-box.show{display:block;}
+  .help-box code{color:var(--amber); background:#1a1006; padding:1px 5px; border-radius:3px; font-family:'JetBrains Mono',monospace;}
+
+  .searchbar{
+    display:flex; gap:0; border:1px solid var(--line); border-radius:6px; overflow:hidden;
+    background:var(--panel2); margin-bottom:8px;
+  }
+  .searchbar:focus-within{border-color:var(--phosphor-dim); box-shadow:0 0 0 1px var(--phosphor-dim);}
+  .searchbar input{
+    flex:1; background:transparent; border:none; outline:none; color:var(--text);
+    font-family:'JetBrains Mono',monospace; font-size:0.95rem; padding:14px 16px;
+  }
+  .searchbar input::placeholder{color:#3a4a44;}
+  .searchbar button{
+    background:var(--phosphor-dim); border:none; color:#03130a; font-weight:700; font-family:'JetBrains Mono',monospace;
+    padding:0 22px; cursor:pointer; font-size:0.85rem; letter-spacing:0.5px;
+  }
+  .searchbar button:hover{background:var(--phosphor);}
+  .meta-row{display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-dim); font-family:'JetBrains Mono',monospace; margin-bottom:24px;}
+
+  .results{min-height:60px;}
+  .result-card{
+    background:var(--panel); border:1px solid var(--line); border-left:2px solid var(--phosphor-dim);
+    border-radius:4px; padding:16px 18px; margin-bottom:14px; animation:fadein 0.35s ease;
+  }
+  @keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+  .result-card.err{border-left-color:var(--red);}
+  .result-url{font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:var(--phosphor-dim); margin-bottom:4px;}
+  .result-title{font-size:1rem; color:var(--amber); margin:0 0 8px; cursor:pointer; text-decoration:none; display:inline-block;}
+  .result-title:hover{text-decoration:underline;}
+  .result-snip{font-size:0.85rem; color:var(--text-dim); line-height:1.55; font-family:'JetBrains Mono',monospace; white-space:pre-wrap;}
+  .result-tag{
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:0.65rem; letter-spacing:1px;
+    color:var(--phosphor); border:1px solid var(--phosphor-dim); padding:2px 6px; border-radius:3px; margin-top:10px;
+  }
+  .no-results{color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:0.85rem; padding:20px 4px;}
+  .no-results .hint-line{color:var(--red); margin-top:6px; font-size:0.78rem;}
+
+  .doc-modal-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:60;
+    align-items:center; justify-content:center; padding:20px;
+  }
+  .doc-modal-backdrop.show{display:flex;}
+  .doc-modal{
+    background:#0d1418; border:1px solid var(--line); border-radius:8px; max-width:620px; width:100%;
+    max-height:80vh; overflow-y:auto; padding:26px 28px; position:relative;
+  }
+  .doc-close{
+    position:absolute; top:14px; right:16px; background:none; border:none; color:var(--text-dim);
+    font-size:1.2rem; cursor:pointer; font-family:'JetBrains Mono',monospace;
+  }
+  .doc-close:hover{color:var(--red);}
+  .doc-modal .doc-title{font-family:'JetBrains Mono',monospace; color:var(--amber); font-size:0.95rem; margin-bottom:14px; border-bottom:1px solid var(--line); padding-bottom:10px;}
+  .doc-modal .doc-body{font-size:0.88rem; line-height:1.75; color:var(--text);}
+  .doc-modal .doc-body pre{background:#050a08; padding:12px 14px; border-radius:5px; border:1px solid var(--line); overflow-x:auto; font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--phosphor);}
+  .doc-modal table{width:100%; border-collapse:collapse; font-size:0.82rem; margin-top:10px;}
+  .doc-modal td, .doc-modal th{border:1px solid var(--line); padding:6px 10px; text-align:left;}
+  .doc-modal th{color:var(--amber); font-family:'JetBrains Mono',monospace; font-size:0.75rem;}
+
+  .qsheet{
+    margin-top:34px; border:1px solid var(--line); border-radius:6px; padding:20px 22px; background:var(--panel);
+  }
+  .qsheet h2{font-family:'JetBrains Mono',monospace; font-size:0.95rem; margin:0 0 12px; color:var(--amber);}
+  .qtabs{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;}
+  .qtab{
+    background:var(--panel2); border:1px solid var(--line); color:var(--text-dim); font-family:'JetBrains Mono',monospace;
+    font-size:0.75rem; padding:7px 13px; border-radius:4px; cursor:pointer; letter-spacing:0.5px;
+  }
+  .qtab:hover{border-color:var(--phosphor-dim); color:var(--text);}
+  .qtab.active{border-color:var(--phosphor); color:var(--phosphor); background:rgba(77,255,159,0.06);}
+  .qblock{border-top:1px dashed var(--line); padding-top:14px; margin-top:14px;}
+  .qblock:first-child{border-top:none; padding-top:0; margin-top:0;}
+  .qblock .qstage-label{font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--phosphor); letter-spacing:1px; margin-bottom:8px;}
+  .qblock .qitem{font-size:0.88rem; color:var(--text); margin-bottom:6px; line-height:1.6;}
+  .qblock .qitem b{color:var(--amber); font-family:'JetBrains Mono',monospace;}
+
+  footer{text-align:center; margin-top:40px; color:var(--text-dim); font-size:0.72rem; font-family:'JetBrains Mono',monospace;}
+
+  @media (max-width:560px){
+    .stage-tracker{display:none;}
+    .brand-name{font-size:13px;}
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-glyph">◎</div>
+      <div class="brand-name">GHOST<span>//</span>INDEX</div>
+    </div>
+    <div class="stage-tracker" id="stageTracker">
+      <div class="dot" data-stage="1">01</div>
+      <div class="dot" data-stage="2">02</div>
+      <div class="dot" data-stage="3">03</div>
+      <div class="dot" data-stage="4">04</div>
+    </div>
+  </div>
+
+  <div class="intro">
+    <h1>// Ghost in the Index — offline dork trainer</h1>
+    <p>Vortalis Dynamics scrubbed their public site after a leak — but search-engine indexes don't
+    forget that fast. This console simulates a search engine's index of <span class="target">vortalisdynamics.io</span>
+    and its subdomains. Type real Google dork syntax below to surface what's still indexed.
+    Everything here is fictional and self-contained — no live crawling, no waiting for Google.</p>
+    <p style="color:var(--text-dim); font-size:0.8rem;">Find all 4 stages. Each one carries its own questions — answer them on your own answer sheet.</p>
+  </div>
+
+  <div class="searchbar">
+    <input type="text" id="queryInput" placeholder="Enter your search query…" autocomplete="off" spellcheck="false">
+    <button id="searchBtn">SEARCH</button>
+  </div>
+  <div class="meta-row">
+    <span id="queryEcho">no query yet</span>
+    <span id="resultCount"></span>
+  </div>
+
+  <div class="results" id="results"></div>
+
+  <div class="qsheet" id="qSheet">
+    <h2>// stage questions</h2>
+    <div class="qtabs" id="qTabs">
+      <button class="qtab active" data-tab="1">Stage 1</button>
+      <button class="qtab" data-tab="2">Stage 2</button>
+      <button class="qtab" data-tab="3">Stage 3</button>
+      <button class="qtab" data-tab="4">Stage 4</button>
+      <button class="qtab" data-tab="final">Final</button>
+    </div>
+    <div id="qsheetList"></div>
+  </div>
+
+  <footer>Fictional exercise — no real company, person, or data. All indexed content is scripted.</footer>
+</div>
+
+<div class="doc-modal-backdrop" id="docBackdrop">
+  <div class="doc-modal">
+    <button class="doc-close" id="docClose">✕ close</button>
+    <div class="doc-title" id="docTitle"></div>
+    <div class="doc-body" id="docBody"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const state = { found: {1:false, 2:false, 3:false, 4:false} };
+
+  // ---- scripted dataset ----
+  const DOCS = {
+    pdf: {
+      title: "Employee_Directory_Q3.pdf",
+      url: "vortalisdynamics.io/hr/archive/Employee_Directory_Q3.pdf",
+      body: `<p style="color:var(--red); font-size:0.75rem; letter-spacing:1px;">CONFIDENTIAL — INTERNAL DISTRIBUTION ONLY</p>
+             <p><strong>Vortalis Dynamics — Employee Directory (Q3 Draft)</strong></p>
+             <table>
+               <tr><th>Name</th><th>Department</th><th>Email</th></tr>
+               <tr><td>J. Harrow</td><td>Human Resources</td><td>j.harrow@vortalisdynamics.io</td></tr>
+               <tr><td>A. Kessler</td><td>Engineering</td><td>a.kessler@vortalisdynamics.io</td></tr>
+               <tr><td>R. Okafor</td><td>IT / Infrastructure</td><td>r.okafor@vortalisdynamics.io</td></tr>
+             </table>`
+    },
+    staging: {
+      title: "staging-api.vortalisdynamics.io — internal build",
+      url: "staging-api.vortalisdynamics.io",
+      body: `<p style="color:var(--amber);">⚠ internal testing only — do not expose to production</p>
+             <p>All requests to <code style="color:var(--phosphor);">/v1/*</code> must include:</p>
+             <pre>GET /v1/status HTTP/1.1
+Host: staging-api.vortalisdynamics.io
+X-Vortalis-Key: &lt;redacted&gt;</pre>
+             <p>See <span style="color:var(--phosphor-dim);">/backups/</span> — directory listing left on by mistake.</p>`
+    },
+    backups: {
+      title: "Index of /backups",
+      url: "staging-api.vortalisdynamics.io/backups/",
+      body: `<pre>drwxr-xr-x   ../
+-rw-r--r--   db_backup_0731.sql.gz     2.7K
+-rw-r--r--   notes_internal.txt        301B
+-rw-r--r--   README_decoy.txt          85B</pre>
+             <p style="margin-top:14px;">notes_internal.txt:</p>
+             <pre>TODO before next sprint:
+- rotate staging creds
+- clean up this backups folder (ticket VD-113)
+
+first flag fragment (don't lose this again):
+ZmxhZ19wYXJ0MV9nb29nbGVfZG9ya19tYXN0ZXI=
+
+-- R.O.</pre>
+             <p style="font-size:0.78rem; color:var(--text-dim);">That looks like Base64. Decode it — you'll need the result for the final flag.</p>`
+    },
+    legal: {
+      title: "Legal Disclosure — Vortalis Dynamics",
+      url: "vortalisdynamics.io/legal/disclosure",
+      body: `<p><strong>Notice of Data Handling Incident</strong></p>
+             <p>Vortalis Dynamics acknowledges a data handling review conducted by its internal
+             security office. For audit purposes, the internal incident reference code is recorded
+             below.</p>
+             <p style="color:var(--amber);">Incident reference code: <strong>VD-2024-ARCLIGHT</strong></p>`
+    },
+    careers: {
+      title: "Careers — Vortalis Dynamics",
+      url: "vortalisdynamics.io/careers",
+      body: `<p>We are not currently hiring.</p>
+             <p style="font-size:0.78rem; color:var(--text-dim);">This page is a decoy — note it also
+             contains the word "careers," which is why Stage 4's dork needs to exclude it.</p>`
+    }
+  };
+
+  const QUESTIONS = {
+    1: {
+      label: "STAGE 1",
+      items: [
+        "Q1. HR left a confidential internal document sitting in the index. Write the exact search query that would surface it — you'll need to narrow by the kind of file it is, where it lives, and a word that marks it as sensitive.",
+        "Q2. Based on the addresses shown in that document, what naming convention does the company use for employee emails?"
+      ]
+    },
+    2: {
+      label: "STAGE 2",
+      items: [
+        "Q3. Somewhere beyond the public-facing site, an internal environment got indexed too. Write the query that surfaces it specifically — one that won't just return the main company website buried under it.",
+        "Q4. What is the name of the authentication header this internal environment's documentation requires?"
+      ]
+    },
+    3: {
+      label: "STAGE 3",
+      items: [
+        "Q5. Whoever set up that internal environment left a folder's contents fully browsable to anyone who finds it. Write the query that would surface a listing like that — think about what a page like this is titled, and what word would appear in its address.",
+        "Q6. One of the files in that folder contains an encoded string. Identify the encoding scheme and decode it."
+      ]
+    },
+    4: {
+      label: "STAGE 4",
+      items: [
+        "Q7. A legal notice page names an incident, but the site also has an unrelated careers page that keeps cluttering the results for related searches. Write a query that surfaces the notice while keeping that unrelated page out of your results.",
+        "Q8. What is the incident reference code stated on that legal notice?"
+      ]
+    }
+  };
+
+  const STAGES = [
+    {
+      id: 1,
+      test: q => q.includes('filetype:pdf') && q.includes('site:vortalisdynamics.io') && /confidential/.test(q),
+      render: () => resultCard(DOCS.pdf, "pdf", "STAGE 1 — TRACE FOUND")
+    },
+    {
+      id: 2,
+      test: q => /site:\*?\.?vortalisdynamics\.io/.test(q) || (q.includes('site:') && q.includes('staging')),
+      // require it actually targets the staging host and not just the main domain alone
+      test2: q => (q.includes('staging') && q.includes('site:')) || (/site:\*\.vortalisdynamics\.io/.test(q) && q.includes('-site:www')),
+      render: () => resultCard(DOCS.staging, "staging", "STAGE 2 — TRACE FOUND")
+    },
+    {
+      id: 3,
+      test: q => q.includes('intitle:"index of"') && q.includes('inurl:backups'),
+      render: () => resultCard(DOCS.backups, "backups", "STAGE 3 — TRACE FOUND")
+    },
+    {
+      id: 4,
+      test: q => (q.includes('intext:') || q.includes('incident')) && (q.includes("careers") || q.includes('careers')),
+      render: () => resultCard(DOCS.legal, "legal", "STAGE 4 — TRACE FOUND")
+    }
+  ];
+
+  function normalize(q){
+    return q.toLowerCase().trim().replace(/\s+/g,' ');
+  }
+
+  function resultCard(doc, key, tag){
+    return `<div class="result-card">
+      <div class="result-url">${doc.url}</div>
+      <a href="#" class="result-title" data-doc="${key}">${doc.title}</a>
+      <div class="result-snip">Click to open the cached page/document.</div>
+      <div class="result-tag">${tag}</div>
+    </div>`;
+  }
+
+  function decoyCard(){
+    return `<div class="result-card err">
+      <div class="result-url">vortalisdynamics.io/careers</div>
+      <a href="#" class="result-title" data-doc="careers">Careers — Vortalis Dynamics</a>
+      <div class="result-snip">We are not currently hiring...</div>
+    </div>`;
+  }
+
+  function markDone(stageId){
+    state.found[stageId] = true;
+    document.querySelector('.dot[data-stage="'+stageId+'"]').classList.add('done');
+  }
+
+  function showTab(tabId){
+    // update tab button states
+    document.querySelectorAll('.qtab').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === String(tabId));
+    });
+    document.querySelectorAll('.dot').forEach(d => {
+      d.classList.toggle('active-nav', d.getAttribute('data-stage') === String(tabId));
+    });
+
+    const list = document.getElementById('qsheetList');
+    if(tabId === 'final'){
+      list.innerHTML = `<div class="qblock"><div class="qstage-label">FINAL</div>
+        <div class="qitem">Q9. Assemble the final flag from what you found across all four stages.</div></div>`;
+      return;
+    }
+    const q = QUESTIONS[tabId];
+    const itemsHtml = q.items.map(i => `<div class="qitem">${i}</div>`).join('');
+    const statusLabel = state.found[tabId] ? `${q.label} — TRACE FOUND` : q.label;
+    list.innerHTML = `<div class="qblock"><div class="qstage-label">${statusLabel}</div>${itemsHtml}</div>`;
+  }
+
+  function runQuery(){
+    const raw = document.getElementById('queryInput').value;
+    const q = normalize(raw);
+    document.getElementById('queryEcho').textContent = raw ? ('query: ' + raw) : 'no query yet';
+    const resultsEl = document.getElementById('results');
+    resultsEl.innerHTML = '';
+
+    if(!q){
+      resultsEl.innerHTML = '<div class="no-results">Type a dork query and hit search.</div>';
+      document.getElementById('resultCount').textContent = '';
+      return;
+    }
+
+    let matched = [];
+
+    STAGES.forEach(stage => {
+      const passes = stage.test2 ? stage.test2(q) : stage.test(q);
+      if(passes){
+        matched.push(stage);
+      }
+    });
+
+    // decoy: generic site: query with no other operators surfaces the careers page as noise
+    const genericSiteOnly = /^site:vortalisdynamics\.io$/.test(q) || (q.includes('site:vortalisdynamics.io') && !q.includes('filetype:') && !q.includes('intext:') && !q.includes('-'));
+
+    if(matched.length > 0){
+      matched.forEach(stage => {
+        resultsEl.insertAdjacentHTML('beforeend', stage.render());
+        markDone(stage.id);
+      });
+      document.getElementById('resultCount').textContent = matched.length + ' result(s)';
+    } else if(genericSiteOnly){
+      resultsEl.innerHTML = decoyCard();
+      document.getElementById('resultCount').textContent = '1 result';
+    } else {
+      resultsEl.innerHTML = `<div class="no-results">No indexed results for that query.</div>`;
+      document.getElementById('resultCount').textContent = '0 results';
+    }
+  }
+
+  document.getElementById('searchBtn').addEventListener('click', runQuery);
+  document.getElementById('queryInput').addEventListener('keydown', e => { if(e.key === 'Enter') runQuery(); });
+
+  document.getElementById('results').addEventListener('click', function(e){
+    const t = e.target.closest('[data-doc]');
+    if(!t) return;
+    e.preventDefault();
+    const doc = DOCS[t.getAttribute('data-doc')];
+    document.getElementById('docTitle').textContent = doc.title;
+    document.getElementById('docBody').innerHTML = doc.body;
+    document.getElementById('docBackdrop').classList.add('show');
+  });
+  document.getElementById('docClose').addEventListener('click', () => document.getElementById('docBackdrop').classList.remove('show'));
+  document.getElementById('docBackdrop').addEventListener('click', function(e){ if(e.target === this) this.classList.remove('show'); });
+
+  document.getElementById('qTabs').addEventListener('click', function(e){
+    const btn = e.target.closest('.qtab');
+    if(!btn) return;
+    showTab(btn.getAttribute('data-tab'));
+  });
+
+  document.getElementById('stageTracker').addEventListener('click', function(e){
+    const dot = e.target.closest('.dot');
+    if(!dot) return;
+    showTab(dot.getAttribute('data-stage'));
+  });
+
+  showTab(1);
+  runQuery();
+})();
+</script>
+</body>
+</html>
