@@ -171,8 +171,7 @@
     <p>Vortalis Dynamics scrubbed their public site after a leak — but search-engine indexes don't
     forget that fast. This console simulates a search engine's index of <span class="target">vortalisdynamics.io</span>
     and its subdomains. Type real Google dork syntax below to surface what's still indexed.
-    </p>
-    
+   </p>
   </div>
 
   <div class="searchbar">
@@ -193,7 +192,6 @@
       <button class="qtab" data-tab="2">Stage 2</button>
       <button class="qtab" data-tab="3">Stage 3</button>
       <button class="qtab" data-tab="4">Stage 4</button>
-      <button class="qtab" data-tab="final">Final</button>
     </div>
     <div id="qsheetList"></div>
   </div>
@@ -253,7 +251,7 @@ first flag fragment (don't lose this again):
 ZmxhZ19wYXJ0MV9nb29nbGVfZG9ya19tYXN0ZXI=
 
 -- R.O.</pre>
-             <p style="font-size:0.78rem; color:var(--text-dim);">That looks like Base64. Decode it — you'll need the result for the final flag.</p>`
+             <p style="font-size:0.78rem; color:var(--text-dim);">That looks like Base64. Decode it.</p>`
     },
     legal: {
       title: "Legal Disclosure — Vortalis Dynamics",
@@ -365,11 +363,6 @@ ZmxhZ19wYXJ0MV9nb29nbGVfZG9ya19tYXN0ZXI=
     });
 
     const list = document.getElementById('qsheetList');
-    if(tabId === 'final'){
-      list.innerHTML = `<div class="qblock"><div class="qstage-label">FINAL</div>
-        <div class="qitem">Q9. Assemble the final flag from what you found across all four stages.</div></div>`;
-      return;
-    }
     const q = QUESTIONS[tabId];
     const itemsHtml = q.items.map(i => `<div class="qitem">${i}</div>`).join('');
     const statusLabel = state.found[tabId] ? `${q.label} — TRACE FOUND` : q.label;
